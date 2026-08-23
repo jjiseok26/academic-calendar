@@ -18,9 +18,6 @@
         <label>학년도
           <input id="year" type="number" min="2020" max="2040" />
         </label>
-        <label>개교기념일 (월-일)
-          <input id="anniversary" type="text" placeholder="05-01" />
-        </label>
 
         <div class="checks">
           <label class="inline"><input id="includeLaborDay" type="checkbox" /> 노동절</label>
@@ -38,20 +35,23 @@
           <select id="format"></select>
         </label>
         <div class="grid2 extra-opts">
-          <label>학기
+          <label class="opt-semester">학기
             <select id="semester">
               <option value="1">1학기</option>
               <option value="2">2학기</option>
             </select>
           </label>
-          <label><span id="monthLabel">월</span>
+          <label class="opt-month"><span id="monthLabel">월</span>
             <select id="month"></select>
+          </label>
+          <label class="opt-end-month">종료 월
+            <select id="endMonth"></select>
           </label>
         </div>
 
         <div class="file-row">
           <label class="btn file">엑셀 불러오기
-            <input id="excelFile" type="file" accept=".xlsx,.xls,.csv" hidden />
+            <input id="excelFile" type="file" accept=".xlsx,.xls,.csv" />
           </label>
           <button id="templateBtn" type="button" class="btn ghost">입력 양식</button>
         </div>

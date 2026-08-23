@@ -206,12 +206,24 @@ export function renderYearlyGrid(state, model) {
   return paper("yearly-grid", false, inner);
 }
 
+function monthRange(all, startMonth, endMonth) {
+  const startIdx = all.findIndex((m) => m.monthIndex === Number(startMonth));
+  const endIdx = all.findIndex((m) => m.monthIndex === Number(endMonth));
+  const s = startIdx < 0 ? 0 : startIdx;
+  const e = endIdx < 0 ? (s + 5) % 12 : endIdx;
+  const months = [];
+  let i = s;
+  while (months.length < 12) {
+    months.push(all[i]);
+    if (i === e) break;
+    i = (i + 1) % 12;
+  }
+  return months;
+}
+
 export function renderSemesterCal(state, model) {
   const all = monthBlocks(model);
-  const startMonth = Number(state.month);
-  let startIdx = all.findIndex((m) => m.monthIndex === startMonth);
-  if (startIdx < 0) startIdx = Number(state.semester) === 2 ? 6 : 0;
-  const months = Array.from({ length: 6 }, (_, i) => all[(startIdx + i) % 12]);
+  const months = monthRange(all, state.month, state.endMonth);
   const cols = months
     .map((m) => {
       const last = new Date(m.year, m.monthIndex + 1, 0).getDate();
@@ -239,9 +251,9 @@ export function renderSemesterCal(state, model) {
   const inner = `
     <header class="sheet-head">
       <div class="school">${esc(state.schoolName)}</div>
-      <h1>${state.year}년 ${months[0].label}~${months[5].label} 학사달력</h1>
+      <h1>${state.year}년 ${months[0].label}~${months[months.length - 1].label} 학사달력</h1>
     </header>
-    <div class="sem-cals">${cols}</div>
+    <div class="sem-cals" style="grid-template-columns: repeat(${months.length}, 1fr)">${cols}</div>
   `;
   return paper("semester-cal", true, inner);
 }
@@ -350,6 +362,17 @@ export function renderSemesterWeek(state, model) {
       <div class="school">${esc(state.schoolName)}</div>
     </header>
     <table class="sem-week">
+      <colgroup>
+        <col class="sw-month" />
+        <col class="sw-week" />
+        <col class="sw-day" />
+        <col class="sw-day" />
+        <col class="sw-day" />
+        <col class="sw-day" />
+        <col class="sw-day" />
+        <col class="sw-sum" />
+        <col class="sw-sum" />
+      </colgroup>
       <thead>
         <tr>
           <th rowspan="2">월</th><th rowspan="2">주</th>

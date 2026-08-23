@@ -1,3 +1,13 @@
+export function isSampleEvents(events) {
+  if (!events || events.length !== SAMPLE_EVENTS.length) return false;
+  const fp = (list) =>
+    [...list]
+      .map((e) => `${String(e.date).slice(5)}\t${e.title}\t${e.type}`)
+      .sort()
+      .join("\n");
+  return fp(events) === fp(SAMPLE_EVENTS);
+}
+
 export const SAMPLE_EVENTS = [
   { date: "2026-03-03", title: "입학식/개학식", type: "activity" },
   { date: "2026-03-05", title: "부장회의", type: "activity" },

@@ -24,11 +24,15 @@ export function inferTerms(year, events) {
     sem2Start: `${year}-08-16`,
     sem2End: `${year}-12-31`,
   };
-  const summer = events.find((e) => /방학식/.test(e.title) && e.date.startsWith(String(year)));
-  const reopen = events.find(
+  const { start, end } = academicRange(year);
+  const from = toKey(start);
+  const to = toKey(end);
+  const inYear = events.filter((e) => e.date >= from && e.date <= to);
+  const summer = inYear.find((e) => /방학식/.test(e.title) && e.date.startsWith(String(year)));
+  const reopen = inYear.find(
     (e) => /개학/.test(e.title) && e.date >= `${year}-07-01` && e.date <= `${year}-09-15`,
   );
-  const close = events.find((e) => /종업식|졸업식/.test(e.title));
+  const close = inYear.find((e) => /종업식|졸업식/.test(e.title));
   if (summer) terms.sem1End = summer.date;
   if (reopen) terms.sem2Start = reopen.date;
   if (close) terms.sem2End = close.date;
@@ -41,7 +45,6 @@ export function buildCalendar(state) {
   const holidays = academicHolidays(year, {
     includeLaborDay: state.includeLaborDay,
     includeSuneung: state.includeSuneung,
-    anniversary: state.anniversary || "",
   });
 
   const eventsByDate = new Map();
@@ -145,7 +148,6 @@ export function selfCheck() {
     year: 2026,
     includeLaborDay: true,
     includeSuneung: true,
-    anniversary: "05-01",
     sem1Start: "2026-03-01",
     sem1End: "2026-07-21",
     sem2Start: "2026-08-11",
@@ -161,4 +163,12 @@ export function selfCheck() {
   const weeks = weekRows(model);
   const week5 = weeks.filter((w) => w.weekNo === 5);
   console.assert(week5.length === 2, "월을 걸치는 주는 두 행");
+  const terms2027 = inferTerms(2027, [
+    { date: "2026-07-21", title: "여름방학식" },
+    { date: "2026-08-11", title: "개학일" },
+    { date: "2026-12-31", title: "종업식, 졸업식" },
+  ]);
+  console.assert(terms2027.sem1End === "2027-07-20", "다른 학년도 방학식을 쓰지 않음");
+  console.assert(terms2027.sem2Start === "2027-08-16", "다른 학년도 개학일을 쓰지 않음");
+  console.assert(terms2027.sem2End === "2027-12-31", "다른 학년도 종업식을 쓰지 않음");
 }

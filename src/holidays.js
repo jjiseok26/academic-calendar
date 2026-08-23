@@ -135,10 +135,6 @@ export function holidaysForCalendarYear(year, options = {}) {
   put(map, ymd(year, 12, 25), "성탄절");
 
   if (options.includeLaborDay) put(map, ymd(year, 5, 1), "노동절");
-  if (options.anniversary) {
-    const [m, d] = options.anniversary.split("-").map(Number);
-    if (m && d) put(map, ymd(year, m, d), "개교기념일");
-  }
   if (options.includeSuneung && SUNEUNG[year]) {
     put(map, ymd(year, SUNEUNG[year][0], SUNEUNG[year][1]), "수능일");
   }

@@ -1,4 +1,4 @@
-import { SAMPLE_EVENTS } from "./sample.js";
+import { SAMPLE_EVENTS, isSampleEvents } from "./sample.js";
 import { selfCheck as dateCheck } from "./dates.js";
 import { selfCheck as holidayCheck } from "./holidays.js";
 import { buildCalendar, inferTerms, selfCheck as calendarCheck } from "./calendar.js";
@@ -18,7 +18,6 @@ function defaultState() {
   return {
     schoolName: "금구중학교",
     year,
-    anniversary: "05-01",
     includeLaborDay: true,
     includeSuneung: true,
     ...inferTerms(year, SAMPLE_EVENTS),
@@ -26,6 +25,7 @@ function defaultState() {
     format: "yearly-week",
     semester: 1,
     month: 2,
+    endMonth: 7,
   };
 }
 
@@ -33,7 +33,15 @@ function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState();
-    return { ...defaultState(), ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    const loaded = { ...defaultState(), ...parsed };
+    if (!Object.hasOwn(parsed, "endMonth")) {
+      loaded.endMonth = loaded.semester === 2 || loaded.month === 8 ? 1 : 7;
+    }
+    if (isSampleEvents(loaded.events)) {
+      loaded.events = SAMPLE_EVENTS.map((e) => ({ ...e }));
+    }
+    return loaded;
   } catch {
     return defaultState();
   }
@@ -51,25 +59,36 @@ let state = loadState();
     const month = Number(monthRaw);
     if (Number.isInteger(month) && month >= 0 && month <= 11) state.month = month;
   }
+  const endMonthRaw = q.get("endMonth");
+  if (endMonthRaw !== null && endMonthRaw !== "") {
+    const endMonth = Number(endMonthRaw);
+    if (Number.isInteger(endMonth) && endMonth >= 0 && endMonth <= 11) state.endMonth = endMonth;
+  }
 }
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+function persistAll() {
+  readForm();
+  saveState();
+}
+
 function fillSelects() {
   $("format").innerHTML = FORMATS.map(
     (f) => `<option value="${f.id}">[${f.group}] ${f.label}</option>`,
   ).join("");
-  $("month").innerHTML = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1]
+  const monthOpts = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1]
     .map((m) => `<option value="${m}">${m + 1}월</option>`)
     .join("");
+  $("month").innerHTML = monthOpts;
+  $("endMonth").innerHTML = monthOpts;
 }
 
 function bindForm() {
   $("schoolName").value = state.schoolName;
   $("year").value = state.year;
-  $("anniversary").value = state.anniversary;
   $("includeLaborDay").checked = state.includeLaborDay;
   $("includeSuneung").checked = state.includeSuneung;
   $("sem1Start").value = state.sem1Start;
@@ -79,12 +98,12 @@ function bindForm() {
   $("format").value = state.format;
   $("semester").value = String(state.semester);
   $("month").value = String(state.month);
+  $("endMonth").value = String(state.endMonth);
 }
 
 function readForm() {
   state.schoolName = $("schoolName").value.trim() || "학교명";
   state.year = Number($("year").value) || 2026;
-  state.anniversary = $("anniversary").value.trim();
   state.includeLaborDay = $("includeLaborDay").checked;
   state.includeSuneung = $("includeSuneung").checked;
   state.sem1Start = $("sem1Start").value;
@@ -94,10 +113,18 @@ function readForm() {
   state.format = $("format").value;
   state.semester = Number($("semester").value);
   state.month = Number($("month").value);
+  state.endMonth = Number($("endMonth").value);
+}
+
+function inAcademicYear(date, year) {
+  return date >= `${year}-03-01` && date <= `${year + 1}-02-29`;
 }
 
 function renderEvents() {
-  const sorted = [...state.events].sort((a, b) => a.date.localeCompare(b.date));
+  const year = Number(state.year);
+  const sorted = [...state.events]
+    .filter((e) => inAcademicYear(e.date, year))
+    .sort((a, b) => a.date.localeCompare(b.date));
   $("eventList").innerHTML = sorted
     .map(
       (e) => `<div class="ev">
@@ -134,27 +161,19 @@ function render() {
   const app = document.querySelector(".app");
   app.classList.toggle("needs-semester", fmt.id === "semester-cal" || fmt.id === "semester-week");
   app.classList.toggle("needs-month", fmt.id === "monthly" || fmt.id === "semester-cal");
+  app.classList.toggle("needs-end-month", fmt.id === "semester-cal");
   $("monthLabel").textContent = fmt.id === "semester-cal" ? "시작 월" : "월";
   setPageSize(fmt.landscape);
 }
 
-function shiftKey(key, delta) {
-  const [y, m, d] = key.split("-").map(Number);
-  const date = new Date(y + delta, m - 1, d);
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${mm}-${dd}`;
-}
-
 function shiftYear(nextYear) {
-  const delta = nextYear - Number(state.year);
-  if (!delta) return;
-  state.year = nextYear;
-  state.sem1Start = shiftKey(state.sem1Start, delta);
-  state.sem1End = shiftKey(state.sem1End, delta);
-  state.sem2Start = shiftKey(state.sem2Start, delta);
-  state.sem2End = shiftKey(state.sem2End, delta);
-  state.events = state.events.map((e) => ({ ...e, date: shiftKey(e.date, delta) }));
+  const year = Number(nextYear) || 2026;
+  if (year === Number(state.year)) return;
+  state.year = year;
+  if (isSampleEvents(state.events)) {
+    state.events = SAMPLE_EVENTS.map((e) => ({ ...e }));
+  }
+  Object.assign(state, inferTerms(year, state.events));
 }
 
 function setup() {
@@ -166,7 +185,6 @@ function setup() {
 
   for (const id of [
     "schoolName",
-    "anniversary",
     "includeLaborDay",
     "includeSuneung",
     "sem1Start",
@@ -175,6 +193,7 @@ function setup() {
     "sem2End",
     "format",
     "month",
+    "endMonth",
   ]) {
     $(id).addEventListener("change", render);
     $(id).addEventListener("input", render);
@@ -182,7 +201,13 @@ function setup() {
 
   $("semester").addEventListener("change", () => {
     if ($("format").value === "semester-cal") {
-      $("month").value = $("semester").value === "2" ? "8" : "2";
+      if ($("semester").value === "2") {
+        $("month").value = "8";
+        $("endMonth").value = "1";
+      } else {
+        $("month").value = "2";
+        $("endMonth").value = "7";
+      }
     }
     render();
   });
@@ -244,6 +269,7 @@ function setup() {
     render();
   });
 
+  window.addEventListener("pagehide", persistAll);
   render();
 }
 
