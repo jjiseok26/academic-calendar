@@ -327,7 +327,7 @@ export function renderSemesterWeek(state, model) {
         const vac = info && !info.inTerm;
         return `<td class="${dayClass(model, d, row.monthIndex)}${vac ? " vac" : ""}">
           <span class="n">${d.getDate()}</span>
-          <span class="ev">${texts.join(" ")}</span>
+          <span class="ev">${texts.join("")}</span>
         </td>`;
       })
       .join("");

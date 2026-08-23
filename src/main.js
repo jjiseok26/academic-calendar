@@ -156,7 +156,9 @@ function setPageSize(landscape) {
     style.id = "page-size";
     document.head.appendChild(style);
   }
-  style.textContent = `@page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 0; }`;
+  style.textContent = landscape
+    ? `@page { size: 297mm 210mm; margin: 0; }`
+    : `@page { size: 210mm 297mm; margin: 0; }`;
 }
 
 function render() {
@@ -261,7 +263,7 @@ function setup() {
   $("xlsxBtn").addEventListener("click", () => {
     const model = buildCalendar(state);
     downloadWorkbook(
-      exportWorkbook(state, model),
+      exportWorkbook(state, model, document.querySelector(".paper")),
       `${state.year}학년도_학사일정.xlsx`,
     );
   });

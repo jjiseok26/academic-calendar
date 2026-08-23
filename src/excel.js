@@ -1,7 +1,7 @@
 import XLSXStyle from "xlsx-js-style";
-import { classifyTitle, monthBlocks } from "./calendar.js";
+import { classifyTitle } from "./calendar.js";
 import { toKey } from "./dates.js";
-import { renderSheet } from "./render.js";
+import { FORMATS, renderSheet } from "./render.js";
 
 const XLSX = XLSXStyle.utils ? XLSXStyle : XLSXStyle.default;
 
@@ -124,13 +124,6 @@ function styleListSheet(ws) {
   });
 }
 
-function styleHolidaySheet(ws) {
-  paintSheet(ws, (cell, r, c) => {
-    if (r === 0) return { header: true, fill: HEADER_FILL, center: true };
-    return { fill: HOLIDAY_FILL, center: c === 0 };
-  });
-}
-
 function htmlCellFill(el) {
   const cls = el.classList;
   if (cls.contains("exam") || el.querySelector(".exam, .act.exam")) return EXAM_FILL;
@@ -149,18 +142,34 @@ function clsHas(el, names) {
   return names.some((n) => el.classList.contains(n));
 }
 
+function cleanLine(text) {
+  return String(text || "").replace(/\s+/g, " ").trim();
+}
+
+function walkText(node) {
+  const BLOCK = new Set(["DIV", "P", "LI", "TR", "H1", "H2", "H3", "UL", "OL", "ARTICLE", "HEADER", "FOOTER", "SECTION"]);
+  if (node.nodeType === 3) return node.textContent.replace(/[\t\r\n]+/g, " ");
+  if (node.nodeName === "BR") return "\n";
+  if (node.nodeName === "STYLE" || node.nodeName === "SCRIPT") return "";
+  let out = "";
+  for (const child of node.childNodes) out += walkText(child);
+  if (BLOCK.has(node.nodeName)) out = `${out.replace(/[ \t]+$/g, "")}\n`;
+  return out.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n");
+}
+
 function cellText(el) {
-  const ev = el.querySelector(":scope > .ev");
-  if (ev) {
-    const day = el.querySelector(":scope > .n")?.textContent.trim() || "";
-    const parts = [...ev.querySelectorAll(".act, .hol")].map((n) => n.textContent.trim()).filter(Boolean);
-    if (parts.length) return [day, ...parts].filter(Boolean).join("\n");
+  const day = el.querySelector(":scope > .n, :scope > .md")?.textContent.trim() || "";
+  const host = el.querySelector(":scope > .ev, :scope > .cell-ev") || (el.matches("td, th") ? el : null);
+  if (host) {
+    const bits = [...host.querySelectorAll(".act, .hol")].map((n) => cleanLine(n.textContent)).filter(Boolean);
+    if (bits.length || day) return [day, ...bits].filter(Boolean).join("\n");
   }
-  return (el.innerText || "")
-    .replace(/\r\n?/g, "\n")
+  if (el.matches("ul, ol, .month-events") || el.querySelector(":scope > li")) {
+    return [...el.querySelectorAll("li")].map((n) => cleanLine(n.textContent)).filter(Boolean).join("\n");
+  }
+  return walkText(el)
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
@@ -188,7 +197,7 @@ function placeTable(ws, table, r0, c0) {
       putCell(ws, r0 + ri, c, cellText(el), {
         header,
         fill: htmlCellFill(el),
-        center: header || clsHas(el, ["num", "month", "week", "n"]),
+        center: header || clsHas(el, ["num", "month", "week", "n", "d"]) || !!el.closest(".mini-cal"),
         color: el.classList.contains("sun") ? "C53030" : el.classList.contains("sat") ? "2B6CB0" : undefined,
         size: header ? 9 : 8,
       });
@@ -209,7 +218,22 @@ function placeTable(ws, table, r0, c0) {
   return { rows: Math.max(0, maxR - r0 + 1), cols: Math.max(0, maxC - c0 + 1) };
 }
 
-function fitSheet(ws, landscape) {
+function columnWidths(table, landscape) {
+  const row = table.tHead?.rows[0] || table.rows[0];
+  if (!row) return null;
+  const widths = [];
+  [...row.cells].forEach((cell) => {
+    const span = cell.colSpan || 1;
+    const w = (cell.getBoundingClientRect().width || cell.offsetWidth || 1) / span;
+    for (let i = 0; i < span; i++) widths.push(w);
+  });
+  const sum = widths.reduce((a, b) => a + b, 0);
+  if (!sum) return null;
+  const pageWch = ((landscape ? 281 : 194) * 96) / 25.4 / 7;
+  return widths.map((w) => ({ wch: Math.max(2.5, (w / sum) * pageWch) }));
+}
+
+function fitSheet(ws, landscape, paper) {
   let maxR = 0;
   let maxC = 0;
   for (const addr of Object.keys(ws)) {
@@ -225,18 +249,23 @@ function fitSheet(ws, landscape) {
     let w = 5;
     for (let r = 0; r <= maxR; r++) {
       const v = String(ws[XLSX.utils.encode_cell({ r, c })]?.v || "");
-      const longest = v.split("\n").reduce((m, line) => Math.max(m, [...line].length), 0);
+      const longest = v.split(/\r?\n/).reduce((m, line) => Math.max(m, [...line].length), 0);
       w = Math.max(w, Math.min(longest + 1, 22));
     }
     cols[c] = { wch: w };
+  }
+  const table = paper?.querySelector(".year-week, .sem-week, .month-big");
+  const live = table ? columnWidths(table, landscape) : null;
+  if (live?.length) {
+    for (let c = 0; c < live.length && c <= maxC; c++) cols[c] = live[c];
   }
   for (let r = 0; r <= maxR; r++) {
     let lines = 1;
     for (let c = 0; c <= maxC; c++) {
       const v = String(ws[XLSX.utils.encode_cell({ r, c })]?.v || "");
-      lines = Math.max(lines, v.split("\n").length);
+      lines = Math.max(lines, v.split(/\r?\n/).length);
     }
-    rows[r] = { hpt: Math.min(12 + 11 * lines, 78) };
+    rows[r] = { hpt: Math.min(12 + 11 * lines, 96) };
   }
   ws["!cols"] = cols;
   ws["!rows"] = rows;
@@ -256,14 +285,19 @@ function fitSheet(ws, landscape) {
     fitToHeight: 1,
     fitToPage: true,
   };
-  ws["!printOptions"] = { horizontalCentered: true };
-  ws["!margins"] = { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.15, footer: 0.15 };
+  ws["!printOptions"] = { horizontalCentered: false, verticalCentered: false };
+  ws["!margins"] = { left: 0.2, right: 0.2, top: 0.25, bottom: 0.25, header: 0, footer: 0 };
 }
 
-function paperToSheet(html, landscape) {
+function paperEl(source) {
+  if (source && source.querySelector) return source;
   const box = document.createElement("div");
-  box.innerHTML = html;
-  const paper = box.querySelector(".paper") || box;
+  box.innerHTML = typeof source === "string" ? source : "";
+  return box.querySelector(".paper") || box;
+}
+
+function paperToSheet(source, landscape) {
+  const paper = paperEl(source);
   const ws = { "!merges": [] };
   let row = 0;
   const title = paper.querySelector("h1, .ym-box")?.innerText.trim() || "";
@@ -322,7 +356,7 @@ function paperToSheet(html, landscape) {
     if (note) putCell(ws, row, 0, note, { size: 8 });
   }
 
-  fitSheet(ws, landscape);
+  fitSheet(ws, landscape, paper);
   return ws;
 }
 
@@ -366,46 +400,12 @@ export function eventTemplateWorkbook() {
   return wb;
 }
 
-export function exportWorkbook(state, model) {
+export function exportWorkbook(state, model, paper) {
   const wb = XLSX.utils.book_new();
-  const list = [
-    ["날짜", "내용", "구분"],
-    ...state.events.map((e) => [
-      e.date,
-      e.title,
-      { activity: "학사활동", exam: "고사", closure: "휴업일", holiday: "공휴일" }[e.type] || e.type,
-    ]),
-  ];
-  const listSheet = XLSX.utils.aoa_to_sheet(list);
-  listSheet["!cols"] = [{ wch: 14 }, { wch: 28 }, { wch: 12 }];
-  styleListSheet(listSheet);
-  XLSX.utils.book_append_sheet(wb, listSheet, "학사일정");
-
-  const holidayRows = [["날짜", "공휴일"]];
-  for (const [key, name] of model.holidays) holidayRows.push([key, name]);
-  const holidaySheet = XLSX.utils.aoa_to_sheet(holidayRows);
-  holidaySheet["!cols"] = [{ wch: 14 }, { wch: 22 }];
-  styleHolidaySheet(holidaySheet);
-  XLSX.utils.book_append_sheet(wb, holidaySheet, "공휴일");
-
-  const jobs = [
-    { name: "연간주간", format: "yearly-week", landscape: false },
-    { name: "연간달력", format: "yearly-grid", landscape: false },
-    { name: "1학기달력", format: "semester-cal", landscape: true, semester: 1, month: 2, endMonth: 7 },
-    { name: "2학기달력", format: "semester-cal", landscape: true, semester: 2, month: 8, endMonth: 1 },
-    { name: "1학기주간", format: "semester-week", landscape: false, semester: 1 },
-    { name: "2학기주간", format: "semester-week", landscape: false, semester: 2 },
-    ...monthBlocks(model).map((m) => ({
-      name: `월중_${m.label}`,
-      format: "monthly",
-      landscape: true,
-      month: m.monthIndex,
-    })),
-  ];
-  for (const job of jobs) {
-    const html = renderSheet({ ...state, ...job }, model);
-    XLSX.utils.book_append_sheet(wb, paperToSheet(html, job.landscape), sheetName(job.name));
-  }
+  const fmt = FORMATS.find((f) => f.id === state.format) || FORMATS[0];
+  const source = paper || renderSheet(state, model);
+  const landscape = paper?.classList?.contains("landscape") ?? fmt.landscape;
+  XLSX.utils.book_append_sheet(wb, paperToSheet(source, landscape), sheetName(fmt.label));
   return wb;
 }
 

@@ -20,7 +20,7 @@ body {
 
 .app {
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 510px 1fr;
   min-height: 100%;
 }
 
@@ -122,8 +122,8 @@ body {
   padding: 8mm;
   overflow: hidden;
 }
-.paper.portrait { width: 210mm; min-height: 297mm; }
-.paper.landscape { width: 297mm; min-height: 210mm; }
+.paper.portrait { width: 210mm; height: 297mm; min-height: 297mm; box-sizing: border-box; }
+.paper.landscape { width: 297mm; height: 210mm; min-height: 210mm; box-sizing: border-box; }
 
 .sheet-head, .month-head {
   display: flex;
@@ -165,6 +165,19 @@ th { background: #edf2f7; font-size: 10px; }
 .month-sum { background: #c6f6d5; font-weight: 700; }
 tr.sum td { background: #faf089; font-weight: 700; text-align: center; }
 
+.paper.fmt-yearly-week {
+  display: flex;
+  flex-direction: column;
+  height: 297mm;
+  box-sizing: border-box;
+}
+.fmt-yearly-week .sheet-head,
+.fmt-yearly-week .note { flex: 0 0 auto; }
+.fmt-yearly-week .year-week {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+}
 .year-week { font-size: 8px; table-layout: fixed; width: 100%; }
 .year-week .events, .year-week .holidays { text-align: left; vertical-align: top; font-size: 7.5px; line-height: 1.25; padding: 1px 3px; }
 .year-week th:nth-child(1), .year-week .month { width: 5%; }
@@ -263,6 +276,13 @@ tr.sum td { background: #faf089; font-weight: 700; text-align: center; }
 .dayline.sun .n, .dayline.sun .w { color: var(--red); }
 .dayline.sat .n, .dayline.sat .w { color: var(--sat); }
 
+.paper.fmt-monthly {
+  display: flex;
+  flex-direction: column;
+  height: 210mm;
+  box-sizing: border-box;
+}
+.fmt-monthly .month-head { flex: 0 0 auto; }
 .ym-box {
   border: 2px solid var(--navy);
   padding: 8px 18px;
@@ -270,10 +290,17 @@ tr.sum td { background: #faf089; font-weight: 700; text-align: center; }
   font-weight: 700;
   letter-spacing: -0.02em;
 }
-.month-big { table-layout: fixed; height: 160mm; }
+.month-big { table-layout: fixed; }
+.fmt-monthly .month-big {
+  flex: 1 1 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
 .month-big th { background: var(--navy); color: #fff; font-size: 13px; height: 9mm; }
 .month-big th.sun, .month-big th.sat { color: #fff; }
-.month-big td { vertical-align: top; height: 28mm; padding: 4px; }
+.month-big td { vertical-align: top; padding: 4px; }
+.fmt-monthly .month-big td { height: auto; }
 .month-big .md { font-weight: 700; font-size: 13px; }
 .cell-ev { font-size: 13px; line-height: 1.35; }
 
@@ -316,12 +343,14 @@ tr.sum td { background: #faf089; font-weight: 700; text-align: center; }
 .sem-week .n,
 .sem-week .ev {
   float: none;
-  display: inline;
+  display: block;
   border: 0;
   box-shadow: none;
 }
-.sem-week .n { font-size: 12px; color: #2d3748; margin-right: 4px; font-weight: 700; }
+.sem-week .n { font-size: 12px; color: #2d3748; font-weight: 700; }
 .sem-week .ev { text-align: left; font-size: 12px; }
+.sem-week .ev .act,
+.sem-week .ev .hol { display: block; }
 .fmt-semester-week .stats { font-size: 12px; }
 .fmt-semester-week .stats table,
 .fmt-semester-week .year-sum { font-size: 12px; }
@@ -330,10 +359,54 @@ tr.sum td { background: #faf089; font-weight: 700; text-align: center; }
 .stats td, .stats th, .year-sum td, .year-sum th { padding: 3px 8px; text-align: center; }
 .total { color: var(--red); font-weight: 800; }
 
+@page { size: 210mm 297mm; margin: 0; }
+
 @media print {
-  body { background: #fff; }
+  html:not(.landscape-format),
+  html:not(.landscape-format) body,
+  html:not(.landscape-format) .app,
+  html:not(.landscape-format) .preview-wrap,
+  html:not(.landscape-format) .preview,
+  html:not(.landscape-format) .paper {
+    width: 210mm !important;
+    height: 297mm !important;
+    max-width: 210mm !important;
+    max-height: 297mm !important;
+  }
+  html.landscape-format,
+  html.landscape-format body,
+  html.landscape-format .app,
+  html.landscape-format .preview-wrap,
+  html.landscape-format .preview,
+  html.landscape-format .paper {
+    width: 297mm !important;
+    height: 210mm !important;
+    max-width: 297mm !important;
+    max-height: 210mm !important;
+  }
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
   .panel { display: none !important; }
-  .preview-wrap { padding: 0; overflow: visible; display: block; }
-  .paper { box-shadow: none; margin: 0 auto; zoom: 1; }
+  .app { display: block !important; }
+  .preview-wrap, .preview {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    display: block !important;
+    transform: none !important;
+  }
+  .paper {
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 5mm !important;
+    zoom: 1 !important;
+    overflow: hidden !important;
+  }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
-.preview .paper { zoom: 0.78; }
+@media screen {
+  .preview .paper { zoom: 0.78; }
+}
