@@ -1,6 +1,7 @@
 import XLSXStyle from "xlsx-js-style";
-import { classifyTitle } from "./calendar.js";
+import { classifyTitle, monthBlocks } from "./calendar.js";
 import { toKey } from "./dates.js";
+import { renderSheet } from "./render.js";
 
 const XLSX = XLSXStyle.utils ? XLSXStyle : XLSXStyle.default;
 
@@ -85,7 +86,7 @@ function styleOf({ header = false, fill, center = false, bold = false, color, si
     fill: fill ? { patternType: "solid", fgColor: { rgb: fill } } : undefined,
     alignment: {
       horizontal: header || center ? "center" : "left",
-      vertical: "center",
+      vertical: header || center ? "center" : "top",
       wrapText: true,
     },
     border: { top: border, bottom: border, left: border, right: border },
@@ -144,48 +145,189 @@ function htmlCellFill(el) {
   return undefined;
 }
 
-function stylePrintSheet(ws, table) {
+function clsHas(el, names) {
+  return names.some((n) => el.classList.contains(n));
+}
+
+function cellText(el) {
+  const ev = el.querySelector(":scope > .ev");
+  if (ev) {
+    const day = el.querySelector(":scope > .n")?.textContent.trim() || "";
+    const parts = [...ev.querySelectorAll(".act, .hol")].map((n) => n.textContent.trim()).filter(Boolean);
+    if (parts.length) return [day, ...parts].filter(Boolean).join("\n");
+  }
+  return (el.innerText || "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function putCell(ws, r, c, value, opts = {}) {
+  ws[XLSX.utils.encode_cell({ r, c })] = {
+    t: "s",
+    v: String(value ?? "").replace(/\n/g, "\r\n"),
+    s: styleOf({ size: 8, ...opts }),
+  };
+}
+
+function placeTable(ws, table, r0, c0) {
+  if (!ws["!merges"]) ws["!merges"] = [];
   const taken = new Set();
   const key = (r, c) => `${r},${c}`;
-  [...table.rows].forEach((tr, r) => {
-    let c = 0;
+  let maxR = r0 - 1;
+  let maxC = c0 - 1;
+  [...table.rows].forEach((tr, ri) => {
+    let c = c0;
     [...tr.cells].forEach((el) => {
-      while (taken.has(key(r, c))) c += 1;
+      while (taken.has(key(r0 + ri, c))) c += 1;
       const rs = el.rowSpan || 1;
       const cs = el.colSpan || 1;
-      const addr = XLSX.utils.encode_cell({ r, c });
-      if (!ws[addr]) ws[addr] = { t: "s", v: el.innerText.replace(/\s+/g, " ").trim() };
       const header = el.tagName === "TH";
-      ws[addr].s = styleOf({
+      putCell(ws, r0 + ri, c, cellText(el), {
         header,
         fill: htmlCellFill(el),
         center: header || clsHas(el, ["num", "month", "week", "n"]),
         color: el.classList.contains("sun") ? "C53030" : el.classList.contains("sat") ? "2B6CB0" : undefined,
-        size: 8,
+        size: header ? 9 : 8,
       });
-      for (let i = 0; i < rs; i++) {
-        for (let j = 0; j < cs; j++) taken.add(key(r + i, c + j));
+      if (rs > 1 || cs > 1) {
+        ws["!merges"].push({
+          s: { r: r0 + ri, c },
+          e: { r: r0 + ri + rs - 1, c: c + cs - 1 },
+        });
       }
+      for (let i = 0; i < rs; i++) {
+        for (let j = 0; j < cs; j++) taken.add(key(r0 + ri + i, c + j));
+      }
+      maxR = Math.max(maxR, r0 + ri + rs - 1);
+      maxC = Math.max(maxC, c + cs - 1);
       c += cs;
     });
   });
-  paintSheet(ws, (cell, r, c) => {
-    if (cell.s) {
-      return {
-        header: cell.s.font?.color?.rgb === "FFFFFF",
-        fill: cell.s.fill?.fgColor?.rgb,
-        center: cell.s.alignment?.horizontal === "center",
-        bold: cell.s.font?.bold,
-        color: cell.s.font?.color?.rgb === "FFFFFF" ? "FFFFFF" : cell.s.font?.color?.rgb,
-        size: cell.s.font?.sz,
-      };
-    }
-    return { size: 8 };
-  });
+  return { rows: Math.max(0, maxR - r0 + 1), cols: Math.max(0, maxC - c0 + 1) };
 }
 
-function clsHas(el, names) {
-  return names.some((n) => el.classList.contains(n));
+function fitSheet(ws, landscape) {
+  let maxR = 0;
+  let maxC = 0;
+  for (const addr of Object.keys(ws)) {
+    if (addr.startsWith("!")) continue;
+    const { r, c } = XLSX.utils.decode_cell(addr);
+    maxR = Math.max(maxR, r);
+    maxC = Math.max(maxC, c);
+  }
+  ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } });
+  const cols = [];
+  const rows = [];
+  for (let c = 0; c <= maxC; c++) {
+    let w = 5;
+    for (let r = 0; r <= maxR; r++) {
+      const v = String(ws[XLSX.utils.encode_cell({ r, c })]?.v || "");
+      const longest = v.split("\n").reduce((m, line) => Math.max(m, [...line].length), 0);
+      w = Math.max(w, Math.min(longest + 1, 22));
+    }
+    cols[c] = { wch: w };
+  }
+  for (let r = 0; r <= maxR; r++) {
+    let lines = 1;
+    for (let c = 0; c <= maxC; c++) {
+      const v = String(ws[XLSX.utils.encode_cell({ r, c })]?.v || "");
+      lines = Math.max(lines, v.split("\n").length);
+    }
+    rows[r] = { hpt: Math.min(12 + 11 * lines, 78) };
+  }
+  ws["!cols"] = cols;
+  ws["!rows"] = rows;
+  if (ws["!merges"]?.length) {
+    const title = ws.A1?.v;
+    if (title && maxC > 0) {
+      const covered = ws["!merges"].some((m) => m.s.r === 0 && m.s.c === 0);
+      if (!covered) ws["!merges"].unshift({ s: { r: 0, c: 0 }, e: { r: 0, c: maxC } });
+    }
+  } else if (maxC > 0 && ws.A1) {
+    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: maxC } }];
+  }
+  ws["!pageSetup"] = {
+    paperSize: 9,
+    orientation: landscape ? "landscape" : "portrait",
+    fitToWidth: 1,
+    fitToHeight: 1,
+    fitToPage: true,
+  };
+  ws["!printOptions"] = { horizontalCentered: true };
+  ws["!margins"] = { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.15, footer: 0.15 };
+}
+
+function paperToSheet(html, landscape) {
+  const box = document.createElement("div");
+  box.innerHTML = html;
+  const paper = box.querySelector(".paper") || box;
+  const ws = { "!merges": [] };
+  let row = 0;
+  const title = paper.querySelector("h1, .ym-box")?.innerText.trim() || "";
+  const school = paper.querySelector(".school, .sheet-foot")?.innerText.trim() || "";
+  if (title) {
+    putCell(ws, 0, 0, school ? `${title}  ${school}` : title, {
+      header: true,
+      fill: HEADER_FILL,
+      center: true,
+      size: 12,
+    });
+    row = 2;
+  }
+
+  const cards = [...paper.querySelectorAll(".month-card, .sem-col")];
+  if (cards.length) {
+    const cols = paper.querySelector(".sem-cals") ? cards.length : 4;
+    const bandH = [];
+    cards.forEach((card, i) => {
+      const col = i % cols;
+      const band = Math.floor(i / cols);
+      const c0 = col * 8;
+      const r0 = row + bandH.slice(0, band).reduce((a, b) => a + b, 0);
+      const heading = card.querySelector("h3")?.innerText.trim() || "";
+      const top = card.querySelector(".month-top")?.innerText.trim() || "";
+      putCell(ws, r0, c0, [heading, top].filter(Boolean).join(" · "), {
+        header: true,
+        fill: HEADER_FILL,
+        center: true,
+      });
+      ws["!merges"].push({ s: { r: r0, c: c0 }, e: { r: r0, c: c0 + 6 } });
+      let used = 1;
+      const table = card.querySelector("table");
+      if (table) {
+        const placed = placeTable(ws, table, r0 + 1, c0);
+        used += placed.rows;
+      }
+      const extra = card.querySelector(".month-events, .daylist");
+      if (extra) {
+        const text = cellText(extra);
+        putCell(ws, r0 + used, c0, text);
+        ws["!merges"].push({
+          s: { r: r0 + used, c: c0 },
+          e: { r: r0 + used, c: c0 + 6 },
+        });
+        used += Math.max(2, text.split("\n").length);
+      }
+      bandH[band] = Math.max(bandH[band] || 0, used + 1);
+    });
+  } else {
+    for (const table of paper.querySelectorAll("table")) {
+      const placed = placeTable(ws, table, row, 0);
+      row += placed.rows + 1;
+    }
+    const note = paper.querySelector(".note")?.innerText.trim();
+    if (note) putCell(ws, row, 0, note, { size: 8 });
+  }
+
+  fitSheet(ws, landscape);
+  return ws;
+}
+
+function sheetName(name) {
+  return name.replace(/[\\/?*[\]]/g, "").slice(0, 31);
 }
 
 export function parseEventWorkbook(buffer, year) {
@@ -224,7 +366,7 @@ export function eventTemplateWorkbook() {
   return wb;
 }
 
-export function exportWorkbook(state, model, htmlTable) {
+export function exportWorkbook(state, model) {
   const wb = XLSX.utils.book_new();
   const list = [
     ["날짜", "내용", "구분"],
@@ -246,10 +388,23 @@ export function exportWorkbook(state, model, htmlTable) {
   styleHolidaySheet(holidaySheet);
   XLSX.utils.book_append_sheet(wb, holidaySheet, "공휴일");
 
-  if (htmlTable) {
-    const ws = XLSX.utils.table_to_sheet(htmlTable);
-    stylePrintSheet(ws, htmlTable);
-    XLSX.utils.book_append_sheet(wb, ws, "인쇄표");
+  const jobs = [
+    { name: "연간주간", format: "yearly-week", landscape: false },
+    { name: "연간달력", format: "yearly-grid", landscape: false },
+    { name: "1학기달력", format: "semester-cal", landscape: true, semester: 1, month: 2, endMonth: 7 },
+    { name: "2학기달력", format: "semester-cal", landscape: true, semester: 2, month: 8, endMonth: 1 },
+    { name: "1학기주간", format: "semester-week", landscape: false, semester: 1 },
+    { name: "2학기주간", format: "semester-week", landscape: false, semester: 2 },
+    ...monthBlocks(model).map((m) => ({
+      name: `월중_${m.label}`,
+      format: "monthly",
+      landscape: true,
+      month: m.monthIndex,
+    })),
+  ];
+  for (const job of jobs) {
+    const html = renderSheet({ ...state, ...job }, model);
+    XLSX.utils.book_append_sheet(wb, paperToSheet(html, job.landscape), sheetName(job.name));
   }
   return wb;
 }

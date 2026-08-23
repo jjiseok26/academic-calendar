@@ -48,6 +48,7 @@ function loadState() {
 }
 
 let state = loadState();
+let editingIndex = null;
 {
   const q = new URLSearchParams(location.search);
   const format = q.get("format");
@@ -120,20 +121,28 @@ function inAcademicYear(date, year) {
   return date >= `${year}-03-01` && date <= `${year + 1}-02-29`;
 }
 
+function stopEditing() {
+  editingIndex = null;
+  $("addBtn").textContent = "추가";
+}
+
 function renderEvents() {
   const year = Number(state.year);
-  const sorted = [...state.events]
+  const sorted = state.events
+    .map((e, i) => ({ ...e, i }))
     .filter((e) => inAcademicYear(e.date, year))
     .sort((a, b) => a.date.localeCompare(b.date));
   $("eventList").innerHTML = sorted
     .map(
-      (e) => `<div class="ev">
+      (e) => `<div class="ev${e.i === editingIndex ? " editing" : ""}">
         <span class="d">${e.date}</span>
         <span class="t ${e.type}">${e.title}</span>
-        <button type="button" data-del="${e.date}|${e.title}" aria-label="삭제">×</button>
+        <button type="button" data-edit="${e.i}">수정</button>
+        <button type="button" data-del="${e.i}" aria-label="삭제">×</button>
       </div>`,
     )
     .join("");
+  $("addBtn").textContent = editingIndex === null ? "추가" : "저장";
 }
 
 function currentFormat() {
@@ -227,6 +236,7 @@ function setup() {
       return;
     }
     state.events = events;
+    stopEditing();
     Object.assign(state, inferTerms(state.year, events));
     bindForm();
     render();
@@ -238,18 +248,20 @@ function setup() {
   });
   $("sampleBtn").addEventListener("click", () => {
     state = defaultState();
+    stopEditing();
     bindForm();
     render();
   });
   $("clearBtn").addEventListener("click", () => {
     state.events = [];
+    stopEditing();
     render();
   });
   $("printBtn").addEventListener("click", () => window.print());
   $("xlsxBtn").addEventListener("click", () => {
     const model = buildCalendar(state);
     downloadWorkbook(
-      exportWorkbook(state, model, document.querySelector(".paper table")),
+      exportWorkbook(state, model),
       `${state.year}학년도_학사일정.xlsx`,
     );
   });
@@ -257,15 +269,35 @@ function setup() {
     const date = $("newDate").value;
     const title = $("newTitle").value.trim();
     if (!date || !title) return;
-    state.events.push({ date, title, type: $("newType").value });
+    const item = { date, title, type: $("newType").value };
+    if (editingIndex !== null && state.events[editingIndex]) {
+      state.events[editingIndex] = item;
+    } else {
+      state.events.push(item);
+    }
     $("newTitle").value = "";
+    stopEditing();
     render();
   });
   $("eventList").addEventListener("click", (e) => {
-    const btn = e.target.closest("button[data-del]");
-    if (!btn) return;
-    const [date, title] = btn.dataset.del.split("|");
-    state.events = state.events.filter((ev) => !(ev.date === date && ev.title === title));
+    const editBtn = e.target.closest("button[data-edit]");
+    if (editBtn) {
+      const i = Number(editBtn.dataset.edit);
+      const ev = state.events[i];
+      if (!ev) return;
+      editingIndex = i;
+      $("newDate").value = ev.date;
+      $("newTitle").value = ev.title;
+      $("newType").value = ev.type;
+      renderEvents();
+      return;
+    }
+    const delBtn = e.target.closest("button[data-del]");
+    if (!delBtn) return;
+    const i = Number(delBtn.dataset.del);
+    if (editingIndex === i) stopEditing();
+    else if (editingIndex !== null && editingIndex > i) editingIndex -= 1;
+    state.events.splice(i, 1);
     render();
   });
 
