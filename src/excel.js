@@ -429,17 +429,18 @@ export function parseEventWorkbook(buffer, year) {
   return events;
 }
 
-export function eventTemplateWorkbook() {
-  const rows = [
-    ["날짜", "내용", "구분"],
-    ["2026-03-03", "입학식/개학식", "학사활동"],
-    ["2026-04-10", "스포츠 데이", "학사활동"],
-    ["2026-04-27", "1차 지필평가", "고사"],
-    ["2026-05-04", "재량휴업일", "휴업일"],
-    ["2026-07-21", "여름방학식", "학사활동"],
-    ["2026-08-11", "개학일", "학사활동"],
-    ["2026-12-31", "종업식, 졸업식", "학사활동"],
-  ];
+const TYPE_LABEL = {
+  activity: "학사활동",
+  exam: "고사",
+  closure: "휴업일",
+  holiday: "공휴일",
+};
+
+export function eventTemplateWorkbook(events = []) {
+  const body = [...events]
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .map((e) => [e.date, e.title, TYPE_LABEL[e.type] || e.type]);
+  const rows = [["날짜", "내용", "구분"], ...body];
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [{ wch: 14 }, { wch: 28 }, { wch: 12 }];
   styleListSheet(ws);

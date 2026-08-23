@@ -126,6 +126,10 @@ function stopEditing() {
   $("addBtn").textContent = "추가";
 }
 
+function typeLabel(type) {
+  return { activity: "학사활동", exam: "고사", closure: "휴업일", holiday: "공휴일" }[type] || type;
+}
+
 function renderEvents() {
   const year = Number(state.year);
   const sorted = state.events
@@ -137,6 +141,7 @@ function renderEvents() {
       (e) => `<div class="ev${e.i === editingIndex ? " editing" : ""}">
         <span class="d">${e.date}</span>
         <span class="t ${e.type}">${e.title}</span>
+        <span class="k">${typeLabel(e.type)}</span>
         <button type="button" data-edit="${e.i}">수정</button>
         <button type="button" data-del="${e.i}" aria-label="삭제">×</button>
       </div>`,
@@ -246,7 +251,7 @@ function setup() {
   });
 
   $("templateBtn").addEventListener("click", () => {
-    downloadWorkbook(eventTemplateWorkbook(), "학사일정_입력양식.xlsx");
+    downloadWorkbook(eventTemplateWorkbook(state.events), "학사일정_입력양식.xlsx");
   });
   $("sampleBtn").addEventListener("click", () => {
     state = defaultState();
