@@ -71,11 +71,15 @@ function typeFrom(value, title) {
   return classifyTitle(title);
 }
 
+function edge() {
+  return { style: "thin", color: { rgb: "4A5568" } };
+}
+
+function boxBorder() {
+  return { top: edge(), bottom: edge(), left: edge(), right: edge() };
+}
+
 function styleOf({ header = false, fill, center = false, bold = false, color, size = 9 }) {
-  const border = {
-    style: "thin",
-    color: { rgb: "4A5568" },
-  };
   return {
     font: {
       name: "맑은 고딕",
@@ -83,14 +87,33 @@ function styleOf({ header = false, fill, center = false, bold = false, color, si
       bold: header || bold,
       color: { rgb: color || (header ? "FFFFFF" : "1A202C") },
     },
-    fill: fill ? { patternType: "solid", fgColor: { rgb: fill } } : undefined,
+    fill: { patternType: "solid", fgColor: { rgb: fill || "FFFFFF" } },
     alignment: {
       horizontal: header || center ? "center" : "left",
       vertical: header || center ? "center" : "top",
       wrapText: true,
     },
-    border: { top: border, bottom: border, left: border, right: border },
+    border: boxBorder(),
   };
+}
+
+function paintMerges(ws) {
+  for (const m of ws["!merges"] || []) {
+    const origin = ws[XLSX.utils.encode_cell({ r: m.s.r, c: m.s.c })];
+    const base = origin?.s || styleOf({});
+    for (let r = m.s.r; r <= m.e.r; r++) {
+      for (let c = m.s.c; c <= m.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c });
+        if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+        ws[addr].s = {
+          font: ws[addr].s?.font || base.font,
+          fill: ws[addr].s?.fill || base.fill,
+          alignment: ws[addr].s?.alignment || base.alignment,
+          border: boxBorder(),
+        };
+      }
+    }
+  }
 }
 
 function paintSheet(ws, fillForCell) {
@@ -259,16 +282,39 @@ function fitSheet(ws, landscape, paper) {
   if (live?.length) {
     for (let c = 0; c < live.length && c <= maxC; c++) cols[c] = live[c];
   }
+  const vMerge = new Set();
+  for (const m of ws["!merges"] || []) {
+    if (m.e.r === m.s.r) continue;
+    for (let r = m.s.r; r <= m.e.r; r++) vMerge.add(r);
+  }
   for (let r = 0; r <= maxR; r++) {
     let lines = 1;
-    for (let c = 0; c <= maxC; c++) {
-      const v = String(ws[XLSX.utils.encode_cell({ r, c })]?.v || "");
-      lines = Math.max(lines, v.split(/\r?\n/).length);
+    if (!vMerge.has(r)) {
+      for (let c = 0; c <= maxC; c++) {
+        const v = String(ws[XLSX.utils.encode_cell({ r, c })]?.v || "");
+        lines = Math.max(lines, v.split(/\r?\n/).length);
+      }
     }
-    rows[r] = { hpt: Math.min(12 + 11 * lines, 96) };
+    rows[r] = { hpt: Math.min(16 + 13 * lines, 36) };
+  }
+  for (const m of ws["!merges"] || []) {
+    const v = String(ws[XLSX.utils.encode_cell({ r: m.s.r, c: m.s.c })]?.v || "");
+    const lines = Math.max(1, v.split(/\r?\n/).length);
+    const span = m.e.r - m.s.r + 1;
+    if (span > 1) {
+      const per = Math.max(16, Math.ceil((15 * lines) / span));
+      for (let r = m.s.r; r <= m.e.r; r++) {
+        rows[r] = { hpt: Math.max(rows[r]?.hpt || 0, per) };
+      }
+    } else {
+      rows[m.s.r] = { hpt: Math.max(rows[m.s.r]?.hpt || 0, Math.min(16 + 13 * lines, 220)) };
+    }
   }
   ws["!cols"] = cols;
-  ws["!rows"] = rows;
+  ws["!rows"] = Array.from({ length: maxR + 1 }, (_, r) => {
+    const hpt = rows[r]?.hpt || 18;
+    return { hpt, hpx: Math.round((hpt * 96) / 72) };
+  });
   if (ws["!merges"]?.length) {
     const title = ws.A1?.v;
     if (title && maxC > 0) {
@@ -278,6 +324,7 @@ function fitSheet(ws, landscape, paper) {
   } else if (maxC > 0 && ws.A1) {
     ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: maxC } }];
   }
+  paintMerges(ws);
   ws["!pageSetup"] = {
     paperSize: 9,
     orientation: landscape ? "landscape" : "portrait",
@@ -338,12 +385,13 @@ function paperToSheet(source, landscape) {
       const extra = card.querySelector(".month-events, .daylist");
       if (extra) {
         const text = cellText(extra);
+        const lines = Math.max(2, text.split("\n").length);
         putCell(ws, r0 + used, c0, text);
         ws["!merges"].push({
           s: { r: r0 + used, c: c0 },
-          e: { r: r0 + used, c: c0 + 6 },
+          e: { r: r0 + used + lines - 1, c: c0 + 6 },
         });
-        used += Math.max(2, text.split("\n").length);
+        used += lines;
       }
       bandH[band] = Math.max(bandH[band] || 0, used + 1);
     });
@@ -410,5 +458,5 @@ export function exportWorkbook(state, model, paper) {
 }
 
 export function downloadWorkbook(wb, filename) {
-  XLSX.writeFile(wb, filename);
+  XLSX.writeFile(wb, filename, { bookType: "xlsx", cellStyles: true });
 }
