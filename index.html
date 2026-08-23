@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>학사일정표 만들기</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="panel">
+        <h1>학사일정표</h1>
+        <p class="lead">엑셀 일정을 넣으면 연간·학기·월중 양식으로 A4 한 장에 맞춰 인쇄합니다. 공휴일은 자동으로 들어갑니다.</p>
+
+        <label>학교명
+          <input id="schoolName" type="text" />
+        </label>
+        <label>학년도
+          <input id="year" type="number" min="2020" max="2040" />
+        </label>
+        <label>개교기념일 (월-일)
+          <input id="anniversary" type="text" placeholder="05-01" />
+        </label>
+
+        <div class="checks">
+          <label class="inline"><input id="includeLaborDay" type="checkbox" /> 노동절</label>
+          <label class="inline"><input id="includeSuneung" type="checkbox" /> 수능일</label>
+        </div>
+
+        <div class="grid2">
+          <label>1학기 시작<input id="sem1Start" type="date" /></label>
+          <label>1학기 종료<input id="sem1End" type="date" /></label>
+          <label>2학기 시작<input id="sem2Start" type="date" /></label>
+          <label>2학기 종료<input id="sem2End" type="date" /></label>
+        </div>
+
+        <label>인쇄 양식
+          <select id="format"></select>
+        </label>
+        <div class="grid2 extra-opts">
+          <label>학기
+            <select id="semester">
+              <option value="1">1학기</option>
+              <option value="2">2학기</option>
+            </select>
+          </label>
+          <label><span id="monthLabel">월</span>
+            <select id="month"></select>
+          </label>
+        </div>
+
+        <div class="file-row">
+          <label class="btn file">엑셀 불러오기
+            <input id="excelFile" type="file" accept=".xlsx,.xls,.csv" hidden />
+          </label>
+          <button id="templateBtn" type="button" class="btn ghost">입력 양식</button>
+        </div>
+
+        <div class="actions">
+          <button id="sampleBtn" type="button" class="btn ghost">샘플 일정</button>
+          <button id="clearBtn" type="button" class="btn ghost">일정 비우기</button>
+          <button id="printBtn" type="button" class="btn primary">A4 인쇄</button>
+          <button id="xlsxBtn" type="button" class="btn">엑셀 저장</button>
+        </div>
+
+        <h2>일정 추가</h2>
+        <div class="add-row">
+          <input id="newDate" type="date" />
+          <input id="newTitle" type="text" placeholder="내용" />
+          <select id="newType">
+            <option value="activity">학사활동</option>
+            <option value="exam">고사</option>
+            <option value="closure">휴업일</option>
+          </select>
+          <button id="addBtn" type="button" class="btn">추가</button>
+        </div>
+        <div id="eventList" class="event-list"></div>
+      </aside>
+
+      <main class="preview-wrap">
+        <div id="preview" class="preview"></div>
+      </main>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
