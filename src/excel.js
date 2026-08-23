@@ -437,11 +437,12 @@ const TYPE_LABEL = {
 };
 
 export function eventTemplateWorkbook(events = []) {
-  const body = [...events]
+  const body = (Array.isArray(events) ? events : [])
+    .filter((e) => e && e.date && String(e.title || "").trim())
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-    .map((e) => [e.date, e.title, TYPE_LABEL[e.type] || e.type]);
+    .map((e) => [String(e.date), String(e.title).trim(), TYPE_LABEL[e.type] || e.type || ""]);
   const rows = [["날짜", "내용", "구분"], ...body];
-  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const ws = XLSX.utils.aoa_to_sheet(rows, { cellDates: false });
   ws["!cols"] = [{ wch: 14 }, { wch: 28 }, { wch: 12 }];
   styleListSheet(ws);
   const wb = XLSX.utils.book_new();
@@ -459,5 +460,16 @@ export function exportWorkbook(state, model, paper) {
 }
 
 export function downloadWorkbook(wb, filename) {
-  XLSX.writeFile(wb, filename, { bookType: "xlsx", cellStyles: true });
+  const out = XLSX.write(wb, { bookType: "xlsx", type: "array", cellStyles: true });
+  const blob = new Blob([out], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }

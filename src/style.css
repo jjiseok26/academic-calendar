@@ -171,6 +171,9 @@ th { background: #edf2f7; font-size: 10px; }
   font-weight: 800;
   vertical-align: middle;
 }
+.fmt-semester-week .sem-week td.month {
+  font-size: calc(var(--sw-fs, 12px) * 1.33);
+}
 .month-sum { background: #c6f6d5; font-weight: 700; }
 tr.sum td { background: #faf089; font-weight: 700; text-align: center; }
 
@@ -315,6 +318,9 @@ tr.sum td { background: #faf089; font-weight: 700; text-align: center; }
 .cell-ev { font-size: 13px; line-height: 1.35; }
 
 .paper.fmt-semester-week {
+  --sw-fs: 12px;
+  --sw-lh: 1.25;
+  --sw-pad: 2px;
   display: flex;
   flex-direction: column;
   height: 297mm;
@@ -331,7 +337,7 @@ tr.sum td { background: #faf089; font-weight: 700; text-align: center; }
   width: 100%;
   height: 100%;
   table-layout: fixed;
-  font-size: 12px;
+  font-size: var(--sw-fs);
 }
 .fmt-semester-week .sem-week .sw-month { width: 7%; }
 .fmt-semester-week .sem-week .sw-week { width: 4%; }
@@ -344,12 +350,12 @@ tr.sum td { background: #faf089; font-weight: 700; text-align: center; }
   white-space: normal;
   word-break: keep-all;
   overflow-wrap: anywhere;
-  padding: 2px 4px;
+  padding: var(--sw-pad) 4px;
   border: 1px solid #4a5568;
-  font-size: 12px;
-  line-height: 1.25;
+  font-size: var(--sw-fs);
+  line-height: var(--sw-lh);
 }
-.fmt-semester-week .sem-week thead th { font-size: 13px; }
+.fmt-semester-week .sem-week thead th { font-size: calc(var(--sw-fs) + 1px); }
 .sem-week .n,
 .sem-week .ev {
   float: none;
@@ -357,13 +363,13 @@ tr.sum td { background: #faf089; font-weight: 700; text-align: center; }
   border: 0;
   box-shadow: none;
 }
-.sem-week .n { font-size: 12px; color: #2d3748; font-weight: 700; }
-.sem-week .ev { text-align: left; font-size: 12px; }
+.sem-week .n { font-size: var(--sw-fs, 12px); color: #2d3748; font-weight: 700; }
+.sem-week .ev { text-align: left; font-size: var(--sw-fs, 12px); }
 .sem-week .ev .act,
 .sem-week .ev .hol { display: block; }
-.fmt-semester-week .stats { font-size: 12px; }
+.fmt-semester-week .stats { font-size: var(--sw-fs); }
 .fmt-semester-week .stats table,
-.fmt-semester-week .year-sum { font-size: 12px; }
+.fmt-semester-week .year-sum { font-size: var(--sw-fs); }
 .stats { display: flex; gap: 16px; margin-top: 8px; }
 .stats table, .year-sum { width: auto; font-size: 10px; }
 .stats td, .stats th, .year-sum td, .year-sum th { padding: 3px 8px; text-align: center; }

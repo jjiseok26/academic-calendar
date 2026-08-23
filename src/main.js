@@ -166,6 +166,38 @@ function setPageSize(landscape) {
     : `@page { size: 210mm 297mm; margin: 0; }`;
 }
 
+function fitSemesterWeek() {
+  const paper = document.querySelector(".paper.fmt-semester-week");
+  if (!paper) return;
+  const table = paper.querySelector(".sem-week");
+  const prevOverflow = paper.style.overflow;
+  paper.style.overflow = "visible";
+  let fs = 12;
+  let pad = 2;
+  let lh = 1.25;
+  const apply = () => {
+    paper.style.setProperty("--sw-fs", `${fs}px`);
+    paper.style.setProperty("--sw-lh", String(lh));
+    paper.style.setProperty("--sw-pad", `${pad}px`);
+  };
+  apply();
+  if (table) {
+    table.style.height = "auto";
+    table.style.flex = "0 0 auto";
+  }
+  for (let i = 0; i < 24 && paper.scrollHeight > paper.clientHeight + 1; i++) {
+    fs = Math.max(6, Math.round((fs - 0.35) * 100) / 100);
+    pad = Math.max(0, Math.round((pad - 0.1) * 100) / 100);
+    lh = Math.max(1.05, Math.round((lh - 0.015) * 1000) / 1000);
+    apply();
+  }
+  if (table && paper.scrollHeight <= paper.clientHeight + 1) {
+    table.style.height = "";
+    table.style.flex = "";
+  }
+  paper.style.overflow = prevOverflow;
+}
+
 function render() {
   readForm();
   saveState();
@@ -180,6 +212,7 @@ function render() {
   app.classList.toggle("needs-end-month", fmt.id === "semester-cal");
   $("monthLabel").textContent = fmt.id === "semester-cal" ? "시작 월" : "월";
   setPageSize(fmt.landscape);
+  fitSemesterWeek();
 }
 
 function shiftYear(nextYear) {
@@ -251,7 +284,12 @@ function setup() {
   });
 
   $("templateBtn").addEventListener("click", () => {
-    downloadWorkbook(eventTemplateWorkbook(state.events), "학사일정_입력양식.xlsx");
+    persistAll();
+    const events = Array.isArray(state.events) ? state.events.map((e) => ({ ...e })) : [];
+    downloadWorkbook(
+      eventTemplateWorkbook(events),
+      `${state.year}학년도_학사일정_입력양식.xlsx`,
+    );
   });
   $("sampleBtn").addEventListener("click", () => {
     state = defaultState();
