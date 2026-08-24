@@ -5,3 +5,4 @@ preview
 .vercel
 .env*
 *.pdf
+tmp-hwpx

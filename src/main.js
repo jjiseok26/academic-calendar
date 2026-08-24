@@ -9,6 +9,8 @@ import {
   exportWorkbook,
   parseEventWorkbook,
 } from "./excel.js";
+import { downloadPdf } from "./pdf.js";
+import { downloadHwpx, selfCheck as hwpxCheck } from "./hwpx.js";
 
 const STORAGE_KEY = "academic-calendar-state";
 const $ = (id) => document.getElementById(id);
@@ -229,6 +231,7 @@ function setup() {
   dateCheck();
   holidayCheck();
   calendarCheck();
+  hwpxCheck();
   fillSelects();
   bindForm();
 
@@ -303,12 +306,30 @@ function setup() {
     render();
   });
   $("printBtn").addEventListener("click", () => window.print());
+  $("pdfBtn").addEventListener("click", async () => {
+    persistAll();
+    const paper = document.querySelector(".paper");
+    if (!paper) return;
+    $("pdfBtn").disabled = true;
+    try {
+      await downloadPdf(paper, `${state.year}학년도_학사일정.pdf`);
+    } finally {
+      $("pdfBtn").disabled = false;
+    }
+  });
   $("xlsxBtn").addEventListener("click", () => {
+    persistAll();
     const model = buildCalendar(state);
     downloadWorkbook(
       exportWorkbook(state, model, document.querySelector(".paper")),
       `${state.year}학년도_학사일정.xlsx`,
     );
+  });
+  $("hwpxBtn").addEventListener("click", () => {
+    persistAll();
+    const paper = document.querySelector(".paper");
+    if (!paper) return;
+    downloadHwpx(paper, `${state.year}학년도_학사일정.hwpx`);
   });
   $("addBtn").addEventListener("click", () => {
     const date = $("newDate").value;

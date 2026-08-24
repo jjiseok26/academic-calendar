@@ -180,7 +180,7 @@ function walkText(node) {
   return out.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n");
 }
 
-function cellText(el) {
+export function cellText(el) {
   const day = el.querySelector(":scope > .n, :scope > .md")?.textContent.trim() || "";
   const host = el.querySelector(":scope > .ev, :scope > .cell-ev") || (el.matches("td, th") ? el : null);
   if (host) {
@@ -459,11 +459,8 @@ export function exportWorkbook(state, model, paper) {
   return wb;
 }
 
-export function downloadWorkbook(wb, filename) {
-  const out = XLSX.write(wb, { bookType: "xlsx", type: "array", cellStyles: true });
-  const blob = new Blob([out], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
+export function downloadBlob(data, filename, type) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -472,4 +469,9 @@ export function downloadWorkbook(wb, filename) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+export function downloadWorkbook(wb, filename) {
+  const out = XLSX.write(wb, { bookType: "xlsx", type: "array", cellStyles: true });
+  downloadBlob(out, filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 }
