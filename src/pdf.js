@@ -53,7 +53,7 @@ function jpegPdf(jpeg, imgW, imgH, landscape) {
   return cat(chunks);
 }
 
-export async function downloadPdf(paper, filename) {
+export async function rasterPaper(paper) {
   const landscape = paper.classList.contains("landscape");
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;left:-9999px;top:0;background:#fff;";
@@ -69,10 +69,15 @@ export async function downloadPdf(paper, filename) {
       useCORS: true,
       logging: false,
     });
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
-    const jpeg = new Uint8Array(await blob.arrayBuffer());
-    downloadBlob(jpegPdf(jpeg, canvas.width, canvas.height, landscape), filename, "application/pdf");
+    return { canvas, landscape };
   } finally {
     host.remove();
   }
+}
+
+export async function downloadPdf(paper, filename) {
+  const { canvas, landscape } = await rasterPaper(paper);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+  const jpeg = new Uint8Array(await blob.arrayBuffer());
+  downloadBlob(jpegPdf(jpeg, canvas.width, canvas.height, landscape), filename, "application/pdf");
 }

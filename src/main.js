@@ -325,11 +325,16 @@ function setup() {
       `${state.year}학년도_학사일정.xlsx`,
     );
   });
-  $("hwpxBtn").addEventListener("click", () => {
+  $("hwpxBtn").addEventListener("click", async () => {
     persistAll();
     const paper = document.querySelector(".paper");
     if (!paper) return;
-    downloadHwpx(paper, `${state.year}학년도_학사일정.hwpx`);
+    $("hwpxBtn").disabled = true;
+    try {
+      await downloadHwpx(paper, `${state.year}학년도_학사일정.hwpx`);
+    } finally {
+      $("hwpxBtn").disabled = false;
+    }
   });
   $("addBtn").addEventListener("click", () => {
     const date = $("newDate").value;
