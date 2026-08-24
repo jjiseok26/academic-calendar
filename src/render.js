@@ -48,7 +48,7 @@ function instructionalMonth(model, year, monthIndex) {
 }
 
 function paper(format, landscape, inner) {
-  return `<section class="paper ${landscape ? "landscape" : "portrait"} fmt-${format}">${inner}</section>`;
+  return `<section class="paper ${landscape ? "landscape" : "portrait"} fmt-${format}">${inner}<p class="copy">© jiseok</p></section>`;
 }
 
 function miniMonth(model, year, monthIndex) {
@@ -375,9 +375,9 @@ export function renderSemesterWeek(state, model) {
       </colgroup>
       <thead>
         <tr>
-          <th rowspan="2">월</th><th rowspan="2">주</th>
+          <th class="month" rowspan="2">월</th><th class="week" rowspan="2">주</th>
           <th colspan="5">교육행사</th>
-          <th rowspan="2">주계</th><th rowspan="2">월계</th>
+          <th class="num" rowspan="2">주계</th><th class="num" rowspan="2">월계</th>
         </tr>
         <tr><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th></tr>
       </thead>

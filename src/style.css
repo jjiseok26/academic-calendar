@@ -111,6 +111,15 @@ body {
 .ev .t.closure { color: #fc8181; }
 .ev button { background: none; border: 0; color: #a0aec0; cursor: pointer; }
 .ev button[data-edit] { font-size: 11px; color: #90cdf4; }
+.copy { margin: 20px 0 0; font-size: 11px; color: #718096; }
+.paper .copy {
+  margin: 4px 0 0;
+  font-size: 8px;
+  font-weight: 400;
+  color: #718096;
+  text-align: right;
+  flex: 0 0 auto;
+}
 
 .app:not(.needs-semester) .opt-semester { display: none; }
 .app:not(.needs-month) .opt-month { display: none; }
@@ -165,14 +174,21 @@ th { background: #edf2f7; font-size: 10px; }
 .act.exam { color: #744210; font-weight: 700; }
 .num, .month, .week { text-align: center; }
 .year-week .month,
-.sem-week .month,
-.fmt-semester-week .sem-week td.month {
+.sem-week .month {
   font-size: 16px;
   font-weight: 800;
   vertical-align: middle;
 }
-.fmt-semester-week .sem-week td.month {
-  font-size: calc(var(--sw-fs, 12px) * 1.33);
+.fmt-semester-week .sem-week thead th.month,
+.fmt-semester-week .sem-week thead th.week,
+.fmt-semester-week .sem-week thead th.num,
+.fmt-semester-week .sem-week td.month,
+.fmt-semester-week .sem-week td.week,
+.fmt-semester-week .sem-week td.num {
+  vertical-align: middle;
+  text-align: center;
+  font-size: calc(var(--sw-fs, 12px) * 1.55);
+  font-weight: 800;
 }
 .month-sum { background: #c6f6d5; font-weight: 700; }
 tr.sum td { background: #faf089; font-weight: 700; text-align: center; }
